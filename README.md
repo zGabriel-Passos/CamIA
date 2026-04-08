@@ -1,6 +1,6 @@
 # CamIA - VibeCoding
 
-#### Em construção
+> Em construção
 
 Detector de movimento por câmera com análise de IA via [Groq](https://groq.com).
 
