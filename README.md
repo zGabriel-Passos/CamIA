@@ -29,7 +29,7 @@ Detector de movimento por câmera com análise de IA via [Groq](https://groq.com
 
 ```bash
 # 1. Clone o repositório
-git clone <url-do-repo>
+git clone https://github.com/zGabriel-Passos/CamIA.git
 cd CamIA
 
 # 2. Instale as dependências
