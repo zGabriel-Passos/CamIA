@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iaCAM - Detector de Movimento</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            color: #00d4ff;
+        }
+
+        .status-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-badge.active { background: #065f46; color: #6ee7b7; }
+        .status-badge.inactive { background: #7f1d1d; color: #fca5a5; }
+
+        main {
+            display: flex;
+            gap: 0;
+            height: calc(100vh - 60px);
+        }
+
+        .video-panel {
+            flex: 1;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .video-container {
+            flex: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #1e3a5f;
+            background: #000;
+            position: relative;
+        }
+
+        .video-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem 0;
+        }
+
+        .stat-card {
+            background: #111827;
+            border: 1px solid #1e3a5f;
+            border-radius: 8px;
+            padding: 0.75rem 1.25rem;
+            text-align: center;
+            flex: 1;
+        }
+
+        .stat-card .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #00d4ff;
+        }
+
+        .stat-card .label {
+            font-size: 0.7rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .events-panel {
+            width: 380px;
+            background: #111827;
+            border-left: 2px solid #1e3a5f;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .events-header {
+            padding: 1rem;
+            border-bottom: 1px solid #1e3a5f;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .events-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .event-card {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            transition: border-color 0.2s;
+        }
+
+        .event-card.new {
+            border-color: #00d4ff;
+            animation: pulse 0.5s ease;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.3); }
+            50% { box-shadow: 0 0 15px 0 rgba(0, 212, 255, 0.5); }
+        }
+
+        .event-card .event-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+
+        .event-card .event-number {
+            color: #00d4ff;
+            font-weight: 700;
+        }
+
+        .event-card .event-analysis {
+            font-size: 0.8rem;
+            line-height: 1.4;
+            color: #d1d5db;
+        }
+
+        .event-card .analyzing {
+            color: #fbbf24;
+            font-style: italic;
+            font-size: 0.8rem;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #374151;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>iaCAM</h1>
+        <span id="groqStatus" class="status-badge inactive">Verificando...</span>
+    </header>
+
+    <main>
+        <div class="video-panel">
+            <div class="video-container">
+                <img id="videoFeed" src="/video_feed" alt="Camera Feed">
+            </div>
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <div class="value" id="movementCount">0</div>
+                    <div class="label">Movimentos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="lastEventHour">--:--:--</div>
+                    <div class="label">Última Detecção</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="groqEvents">0</div>
+                    <div class="label">Analisados com IA</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="events-panel">
+            <div class="events-header">
+                📋 Eventos Detectados
+            </div>
+            <div class="events-list" id="eventsList">
+                <div class="empty-state">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                    </svg>
+                    <p>Nenhum movimento detectado ainda.<br>A câmera está monitorando...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let eventsKnown = [];
+
+        async function checkGroqStatus() {
+            try {
+                const r = await fetch('/groq-status');
+                const data = await r.json();
+                const badge = document.getElementById('groqStatus');
+                if (data.available) {
+                    badge.className = 'status-badge active';
+                    badge.textContent = `Groq IA: ${data.model}`;
+                } else {
+                    badge.className = 'status-badge inactive';
+                    badge.textContent = 'Groq - Não configurada';
+                }
+            } catch (e) {}
+        }
+
+        function renderEvents(events) {
+            const container = document.getElementById('eventsList');
+            const emptyState = container.querySelector('.empty-state');
+            if (emptyState && events.length === 0) return;
+
+            const isNew = events.length > eventsKnown.length;
+            eventsKnown = events.map(e => e.count);
+
+            if (events.length === 0) {
+                container.innerHTML = '';
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                        <p>Nenhum movimento detectado ainda.<br>A câmera está monitorando...</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = events.map(ev => `
+                <div class="event-card ${isNew && ev.count === events[0].count ? 'new' : ''}">
+                    <div class="event-meta">
+                        <span class="event-number">Detecção #${ev.count}</span>
+                        <span>${ev.timestamp || ''}</span>
+                    </div>
+                    ${ev.error
+                        ? `<div class="event-analysis" style="color:#f87171">Erro: ${ev.error}</div>`
+                        : ev.status === 'analyzing...'
+                            ? `<div class="analyzing">⏳ Analisando com IA...</div>`
+                            : ev.analysis
+                                ? `<div class="event-analysis">🧠 ${ev.analysis}</div>`
+                                : `<div class="analyzing">Aguardando análise...</div>`
+                    }
+                </div>
+            `).join('');
+
+            // Atualiza stats
+            document.getElementById('movementCount').textContent = events.length ? events[0].count : 0;
+            const lastAnalyzed = events.filter(e => e.analysis).length;
+            document.getElementById('groqEvents').textContent = lastAnalyzed;
+            if (events.length > 0) {
+                document.getElementById('lastEventHour').textContent = events[0].timestamp || '--:--:--';
+            }
+        }
+
+        async function updateEvents() {
+            try {
+                const r = await fetch('/events');
+                const events = await r.json();
+                renderEvents(events);
+            } catch (e) {}
+        }
+
+        // Poll a cada 1.5s para novas analises
+        checkGroqStatus();
+        setInterval(updateEvents, 1500);
+        updateEvents();
+    </script>
+</body>
+</html>
